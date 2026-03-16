@@ -22,7 +22,7 @@ DS-powered student record system — Trie, HashMap, BST from scratch. React + Fa
 
 ## Login Credentials
 - Admin → username: `admin` / password: `admin123`
-- Student → username: roll number / password: `student123` (default)
+- Student → username: Student's roll number (example : 'CS2022001') / password: `student123` (default)
 
 ## Running Locally
 
