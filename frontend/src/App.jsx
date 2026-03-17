@@ -23,6 +23,8 @@ const C = {
 
 const cgpaColor = (v) => v >= 8.5 ? "#166534" : v >= 7.0 ? "#b45309" : v >= 5.5 ? "#92400e" : "#c0392b";
 const cgpaBg = (v) => v >= 8.5 ? "#dcfce7" : v >= 7.0 ? "#fef9c3" : v >= 5.5 ? "#ffedd5" : "#fee2e2";
+const attendanceColor = (p) => p === null ? C.textFaint : p >= 75 ? "#166534" : p >= 50 ? "#b45309" : "#c0392b";
+const attendanceBg = (p) => p === null ? C.surfaceAlt : p >= 75 ? "#dcfce7" : p >= 50 ? "#fef9c3" : "#fee2e2";
 const avatarColors = [["#1a6b5c","#e8f5f2"],["#4338ca","#eef2ff"],["#b45309","#fef3c7"],["#9333ea","#f5f3ff"],["#0369a1","#e0f2fe"],["#c0392b","#fdf0ee"]];
 const getAvatarColor = (name) => avatarColors[name.charCodeAt(0) % avatarColors.length];
 
@@ -34,7 +36,9 @@ const apiFetch = async (path, options = {}, token = null) => {
   return data;
 };
 
-// ── Login Page ────────────────────────────────────────────────────────────────
+const todayStr = () => new Date().toISOString().split("T")[0];
+
+// ── Login ─────────────────────────────────────────────────────────────────────
 function LoginPage({ onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -47,9 +51,8 @@ function LoginPage({ onLogin }) {
     try {
       const data = await apiFetch("/login", { method: "POST", body: JSON.stringify({ username, password }) });
       onLogin(data);
-    } catch (e) {
-      setError(e.message);
-    } finally { setLoading(false); }
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
   };
 
   return (
@@ -61,23 +64,15 @@ function LoginPage({ onLogin }) {
           <div style={{ fontSize: 13, color: C.textMuted }}>Sign in to continue</div>
         </div>
         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 36, boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
-          {error && (
-            <div style={{ background: C.dangerLight, border: `1px solid ${C.danger}`, color: C.danger, padding: "10px 14px", borderRadius: 8, fontSize: 13, marginBottom: 20 }}>
-              {error}
-            </div>
-          )}
+          {error && <div style={{ background: C.dangerLight, border: `1px solid ${C.danger}`, color: C.danger, padding: "10px 14px", borderRadius: 8, fontSize: 13, marginBottom: 20 }}>{error}</div>}
           <div style={{ marginBottom: 16 }}>
             <label style={{ fontSize: 12, color: C.textMuted, display: "block", marginBottom: 6, fontFamily: "'DM Mono', monospace" }}>Username / Roll Number</label>
-            <input value={username} onChange={e => setUsername(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleLogin()}
-              placeholder="admin or CS2021001"
+            <input value={username} onChange={e => setUsername(e.target.value)} onKeyDown={e => e.key === "Enter" && handleLogin()} placeholder="admin or CS2021001"
               style={{ width: "100%", padding: "11px 14px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 14, outline: "none", boxSizing: "border-box", fontFamily: "'Lora', serif" }} />
           </div>
           <div style={{ marginBottom: 24 }}>
             <label style={{ fontSize: 12, color: C.textMuted, display: "block", marginBottom: 6, fontFamily: "'DM Mono', monospace" }}>Password</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleLogin()}
-              placeholder="••••••••"
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && handleLogin()} placeholder="••••••••"
               style={{ width: "100%", padding: "11px 14px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 14, outline: "none", boxSizing: "border-box", fontFamily: "'Lora', serif" }} />
           </div>
           <button onClick={handleLogin} disabled={loading}
@@ -94,18 +89,19 @@ function LoginPage({ onLogin }) {
 // ── Student Portal ────────────────────────────────────────────────────────────
 function StudentPortal({ user, token, onLogout }) {
   const [record, setRecord] = useState(null);
+  const [attendance, setAttendance] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch("/me", {}, token)
-      .then(data => setRecord(data))
+    Promise.all([
+      apiFetch("/me", {}, token),
+      apiFetch(`/attendance/${user.roll_number}`, {}, token)
+    ]).then(([rec, att]) => { setRecord(rec); setAttendance(att); })
       .finally(() => setLoading(false));
   }, []);
 
   if (loading) return (
-    <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Lora', serif", color: C.textMuted }}>
-      Loading your record...
-    </div>
+    <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Lora', serif", color: C.textMuted }}>Loading...</div>
   );
 
   const [fg, bg] = record ? getAvatarColor(record.name) : ["#1a6b5c", "#e8f5f2"];
@@ -113,42 +109,48 @@ function StudentPortal({ user, token, onLogout }) {
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Lora', Georgia, serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
-
-      {/* Header */}
       <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "16px 40px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ fontSize: 20, fontWeight: 700 }}>Smart<span style={{ color: C.accent }}>Record</span></div>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <span style={{ fontSize: 13, color: C.textMuted }}>Student Portal</span>
-          <button onClick={onLogout} style={{ padding: "7px 16px", background: C.surfaceAlt, border: `1px solid ${C.border}`, color: C.textMuted, borderRadius: 7, cursor: "pointer", fontSize: 13, fontFamily: "'Lora', serif" }}>
-            Sign Out
-          </button>
+          <button onClick={onLogout} style={{ padding: "7px 16px", background: C.surfaceAlt, border: `1px solid ${C.border}`, color: C.textMuted, borderRadius: 7, cursor: "pointer", fontSize: 13, fontFamily: "'Lora', serif" }}>Sign Out</button>
         </div>
       </div>
-
       <div style={{ maxWidth: 600, margin: "60px auto", padding: "0 24px" }}>
         {record && (
           <>
             <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 36 }}>
-              <div style={{ width: 64, height: 64, borderRadius: 16, background: bg, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 700, color: fg }}>
-                {record.name[0].toUpperCase()}
-              </div>
+              <div style={{ width: 64, height: 64, borderRadius: 16, background: bg, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 700, color: fg }}>{record.name[0].toUpperCase()}</div>
               <div>
                 <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 4, letterSpacing: "-0.3px" }}>{record.name}</h1>
                 <div style={{ fontSize: 13, color: C.accent, fontFamily: "'DM Mono', monospace" }}>{record.roll_number}</div>
               </div>
             </div>
 
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden", marginBottom: 20 }}>
-              <div style={{ padding: "14px 20px", background: C.surfaceAlt, borderBottom: `1px solid ${C.border}`, fontSize: 12, color: C.textMuted, fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: 1 }}>
-                Academic Details
+            {/* Attendance Card */}
+            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden", marginBottom: 16 }}>
+              <div style={{ padding: "14px 20px", background: C.surfaceAlt, borderBottom: `1px solid ${C.border}`, fontSize: 12, color: C.textMuted, fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: 1 }}>Attendance</div>
+              <div style={{ padding: "20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                {attendance && attendance.total > 0 ? (
+                  <>
+                    <div>
+                      <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 4 }}>Classes attended</div>
+                      <div style={{ fontSize: 14, fontWeight: 600 }}>{attendance.present} / {attendance.total}</div>
+                    </div>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: attendanceColor(attendance.percentage), background: attendanceBg(attendance.percentage), padding: "8px 20px", borderRadius: 12, fontFamily: "'DM Mono', monospace" }}>
+                      {attendance.percentage}%
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 13, color: C.textFaint }}>No attendance records yet.</div>
+                )}
               </div>
-              {[
-                ["Department", record.department],
-                ["Year", `Year ${record.year}`],
-                ["CGPA", record.cgpa],
-                ["Email", record.email],
-                ["Phone", record.phone || "—"],
-              ].map(([label, val]) => (
+            </div>
+
+            {/* Academic Details */}
+            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden", marginBottom: 20 }}>
+              <div style={{ padding: "14px 20px", background: C.surfaceAlt, borderBottom: `1px solid ${C.border}`, fontSize: 12, color: C.textMuted, fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: 1 }}>Academic Details</div>
+              {[["Department", record.department], ["Year", `Year ${record.year}`], ["CGPA", record.cgpa], ["Email", record.email], ["Phone", record.phone || "—"]].map(([label, val]) => (
                 <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", borderBottom: `1px solid ${C.surfaceAlt}` }}>
                   <span style={{ fontSize: 13, color: C.textMuted }}>{label}</span>
                   {label === "CGPA"
@@ -157,7 +159,6 @@ function StudentPortal({ user, token, onLogout }) {
                 </div>
               ))}
             </div>
-
             <div style={{ padding: "12px 16px", background: C.accentLight, border: `1px solid ${C.accentMid}`, borderRadius: 10, fontSize: 12, color: C.accentText }}>
               This is a read-only view. Contact your administrator to update your details.
             </div>
@@ -182,29 +183,40 @@ function AdminDashboard({ user, token, onLogout }) {
   const [toast, setToast] = useState(null);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  // Attendance state
+  const [attendanceDate, setAttendanceDate] = useState(todayStr());
+  const [attendanceMap, setAttendanceMap] = useState({});
+  const [attendanceStats, setAttendanceStats] = useState([]);
+  const [attendanceSubmitting, setAttendanceSubmitting] = useState(false);
 
   const debouncedSearch = useDebounce(searchQuery, 250);
 
-  const showToast = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
+  const showToast = (msg, type = "success") => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
   const fetchStudents = () => apiFetch("/students", {}, token).then(d => setStudents(d.students || []));
   const fetchStats = () => apiFetch("/stats", {}, token).then(d => setStats(d));
+  const fetchAttendanceStats = () => apiFetch("/attendance/stats", {}, token).then(d => setAttendanceStats(d.stats || []));
 
   useEffect(() => { fetchStudents(); fetchStats(); }, []);
 
   useEffect(() => {
+    if (view === "attendance") {
+      fetchAttendanceStats();
+      // Load existing attendance for selected date
+      apiFetch(`/attendance/date/${attendanceDate}`, {}, token).then(d => {
+        const map = {};
+        (d.records || []).forEach(r => { map[r.roll_number] = r.status; });
+        setAttendanceMap(map);
+      }).catch(() => {});
+    }
+  }, [view, attendanceDate]);
+
+  useEffect(() => {
     if (!debouncedSearch.trim()) { setSearchResults([]); return; }
-    apiFetch(`/students/search?q=${encodeURIComponent(debouncedSearch)}`, {}, token)
-      .then(d => setSearchResults(d.students || []));
+    apiFetch(`/students/search?q=${encodeURIComponent(debouncedSearch)}`, {}, token).then(d => setSearchResults(d.students || []));
   }, [debouncedSearch]);
 
   const handleSubmit = async () => {
-    if (!form.name || !form.roll_number || !form.department || !form.email) {
-      showToast("Please fill all required fields", "error"); return;
-    }
+    if (!form.name || !form.roll_number || !form.department || !form.email) { showToast("Please fill all required fields", "error"); return; }
     setLoading(true);
     try {
       const url = editRoll ? `/students/${editRoll}` : "/students";
@@ -220,8 +232,7 @@ function AdminDashboard({ user, token, onLogout }) {
   const handleDelete = async (roll) => {
     try {
       await apiFetch(`/students/${roll}`, { method: "DELETE" }, token);
-      showToast("Student removed");
-      setDeleteConfirm(null); setSelectedStudent(null);
+      showToast("Student removed"); setDeleteConfirm(null); setSelectedStudent(null);
       fetchStudents(); fetchStats();
     } catch (e) { showToast(e.message, "error"); }
   };
@@ -231,9 +242,28 @@ function AdminDashboard({ user, token, onLogout }) {
     setEditRoll(s.roll_number); setView("add"); setSelectedStudent(null);
   };
 
+  const handleAttendanceSubmit = async () => {
+    if (students.length === 0) { showToast("No students to mark", "error"); return; }
+    setAttendanceSubmitting(true);
+    try {
+      const records = students.map(s => ({ roll_number: s.roll_number, status: attendanceMap[s.roll_number] || "absent" }));
+      await apiFetch("/attendance", { method: "POST", body: JSON.stringify({ date: attendanceDate, records }) }, token);
+      showToast("Attendance saved!");
+      fetchAttendanceStats();
+    } catch (e) { showToast(e.message, "error"); }
+    finally { setAttendanceSubmitting(false); }
+  };
+
+  const markAll = (status) => {
+    const map = {};
+    students.forEach(s => { map[s.roll_number] = status; });
+    setAttendanceMap(map);
+  };
+
   const navItems = [
     { id: "dashboard", icon: "⊞", label: "Dashboard" },
     { id: "list", icon: "≡", label: "All Students" },
+    { id: "attendance", icon: "✓", label: "Attendance" },
     { id: "search", icon: "○", label: "Search" },
     { id: "add", icon: "+", label: "Add Student" },
   ];
@@ -242,34 +272,21 @@ function AdminDashboard({ user, token, onLogout }) {
     <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "'Lora', Georgia, serif", display: "flex" }}>
       <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
-      {toast && (
-        <div style={{ position: "fixed", top: 20, right: 20, zIndex: 9999, background: toast.type === "error" ? C.dangerLight : C.accentLight, border: `1px solid ${toast.type === "error" ? C.danger : C.accentMid}`, color: toast.type === "error" ? C.danger : C.accentText, padding: "10px 18px", borderRadius: 8, fontSize: 13, fontWeight: 500, boxShadow: "0 4px 20px rgba(0,0,0,0.08)", animation: "slideIn 0.2s ease", fontFamily: "'DM Mono', monospace" }}>{toast.msg}</div>
-      )}
+      {toast && <div style={{ position: "fixed", top: 20, right: 20, zIndex: 9999, background: toast.type === "error" ? C.dangerLight : C.accentLight, border: `1px solid ${toast.type === "error" ? C.danger : C.accentMid}`, color: toast.type === "error" ? C.danger : C.accentText, padding: "10px 18px", borderRadius: 8, fontSize: 13, fontWeight: 500, boxShadow: "0 4px 20px rgba(0,0,0,0.08)", animation: "slideIn 0.2s ease", fontFamily: "'DM Mono', monospace" }}>{toast.msg}</div>}
 
       {selectedStudent && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(28,27,24,0.35)", backdropFilter: "blur(3px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
-          onClick={() => setSelectedStudent(null)}>
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 36, width: 420, boxShadow: "0 20px 60px rgba(0,0,0,0.1)", position: "relative" }}
-            onClick={e => e.stopPropagation()}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(28,27,24,0.35)", backdropFilter: "blur(3px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setSelectedStudent(null)}>
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 36, width: 420, boxShadow: "0 20px 60px rgba(0,0,0,0.1)", position: "relative" }} onClick={e => e.stopPropagation()}>
             <button onClick={() => setSelectedStudent(null)} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", color: C.textFaint, fontSize: 18, cursor: "pointer" }}>✕</button>
-            {(() => {
-              const [fg, bg] = getAvatarColor(selectedStudent.name);
-              return (
-                <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28, paddingBottom: 20, borderBottom: `1px solid ${C.border}` }}>
-                  <div style={{ width: 56, height: 56, borderRadius: 14, background: bg, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 700, color: fg }}>{selectedStudent.name[0].toUpperCase()}</div>
-                  <div>
-                    <div style={{ fontSize: 20, fontWeight: 700 }}>{selectedStudent.name}</div>
-                    <div style={{ color: C.accent, fontSize: 12, fontFamily: "'DM Mono', monospace", marginTop: 2 }}>{selectedStudent.roll_number}</div>
-                  </div>
-                </div>
-              );
-            })()}
+            {(() => { const [fg, bg] = getAvatarColor(selectedStudent.name); return (
+              <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28, paddingBottom: 20, borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ width: 56, height: 56, borderRadius: 14, background: bg, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 700, color: fg }}>{selectedStudent.name[0].toUpperCase()}</div>
+                <div><div style={{ fontSize: 20, fontWeight: 700 }}>{selectedStudent.name}</div><div style={{ color: C.accent, fontSize: 12, fontFamily: "'DM Mono', monospace", marginTop: 2 }}>{selectedStudent.roll_number}</div></div>
+              </div>); })()}
             {[["Department", selectedStudent.department], ["Year", `Year ${selectedStudent.year}`], ["CGPA", selectedStudent.cgpa], ["Email", selectedStudent.email], ["Phone", selectedStudent.phone || "—"]].map(([label, val]) => (
               <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.surfaceAlt}` }}>
                 <span style={{ color: C.textMuted, fontSize: 13 }}>{label}</span>
-                {label === "CGPA"
-                  ? <span style={{ fontSize: 12, fontWeight: 600, color: cgpaColor(val), background: cgpaBg(val), padding: "2px 10px", borderRadius: 20, fontFamily: "'DM Mono', monospace" }}>{val}</span>
-                  : <span style={{ fontSize: 13, fontWeight: 500 }}>{val}</span>}
+                {label === "CGPA" ? <span style={{ fontSize: 12, fontWeight: 600, color: cgpaColor(val), background: cgpaBg(val), padding: "2px 10px", borderRadius: 20, fontFamily: "'DM Mono', monospace" }}>{val}</span> : <span style={{ fontSize: 13, fontWeight: 500 }}>{val}</span>}
               </div>
             ))}
             <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
@@ -306,8 +323,7 @@ function AdminDashboard({ user, token, onLogout }) {
             return (
               <button key={item.id} onClick={() => { setView(item.id); setEditRoll(null); setForm(initialForm); }}
                 style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: active ? 600 : 400, marginBottom: 2, textAlign: "left", background: active ? C.accentLight : "none", border: active ? `1px solid ${C.accentMid}` : "1px solid transparent", color: active ? C.accentText : C.textMuted, fontFamily: "'Lora', serif", transition: "all 0.12s" }}>
-                <span style={{ fontSize: 15, width: 18, textAlign: "center" }}>{item.icon}</span>
-                {item.label}
+                <span style={{ fontSize: 15, width: 18, textAlign: "center" }}>{item.icon}</span>{item.label}
               </button>
             );
           })}
@@ -327,6 +343,7 @@ function AdminDashboard({ user, token, onLogout }) {
       {/* Main */}
       <div style={{ marginLeft: 224, flex: 1, padding: "40px 48px" }}>
 
+        {/* DASHBOARD */}
         {view === "dashboard" && (
           <div>
             <div style={{ marginBottom: 36 }}>
@@ -376,6 +393,7 @@ function AdminDashboard({ user, token, onLogout }) {
           </div>
         )}
 
+        {/* ALL STUDENTS */}
         {view === "list" && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
@@ -395,10 +413,7 @@ function AdminDashboard({ user, token, onLogout }) {
                     onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
                       <div style={{ width: 40, height: 40, borderRadius: 10, background: bg, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 15, color: fg }}>{s.name[0].toUpperCase()}</div>
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</div>
-                        <div style={{ color: C.textFaint, fontSize: 11, fontFamily: "'DM Mono', monospace" }}>{s.roll_number}</div>
-                      </div>
+                      <div><div style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</div><div style={{ color: C.textFaint, fontSize: 11, fontFamily: "'DM Mono', monospace" }}>{s.roll_number}</div></div>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span style={{ fontSize: 12, color: C.textMuted }}>{s.department.split(" ")[0]} · Y{s.year}</span>
@@ -407,16 +422,83 @@ function AdminDashboard({ user, token, onLogout }) {
                   </div>
                 );
               })}
-              {students.length === 0 && (
-                <div style={{ gridColumn: "1/-1", textAlign: "center", padding: 60, color: C.textFaint }}>
-                  <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
-                  <div style={{ fontSize: 14 }}>No students yet.</div>
-                </div>
-              )}
+              {students.length === 0 && <div style={{ gridColumn: "1/-1", textAlign: "center", padding: 60, color: C.textFaint }}><div style={{ fontSize: 40, marginBottom: 12 }}>📭</div><div style={{ fontSize: 14 }}>No students yet.</div></div>}
             </div>
           </div>
         )}
 
+        {/* ATTENDANCE */}
+        {view === "attendance" && (
+          <div>
+            <div style={{ marginBottom: 28 }}>
+              <h1 style={{ fontSize: 30, fontWeight: 700, margin: 0, letterSpacing: "-0.5px" }}>Attendance</h1>
+              <p style={{ color: C.textMuted, fontSize: 13, marginTop: 6 }}>Mark bulk attendance by date</p>
+            </div>
+
+            {/* Date picker + actions */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+              <input type="date" value={attendanceDate} onChange={e => setAttendanceDate(e.target.value)}
+                style={{ padding: "9px 14px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 14, outline: "none", fontFamily: "'DM Mono', monospace" }} />
+              <button onClick={() => markAll("present")} style={{ padding: "9px 16px", background: "#dcfce7", border: "1px solid #22c55e", color: "#166534", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'Lora', serif", fontWeight: 500 }}>Mark All Present</button>
+              <button onClick={() => markAll("absent")} style={{ padding: "9px 16px", background: C.dangerLight, border: `1px solid ${C.danger}`, color: C.danger, borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'Lora', serif", fontWeight: 500 }}>Mark All Absent</button>
+            </div>
+
+            {/* Student attendance list */}
+            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden", marginBottom: 20 }}>
+              <div style={{ padding: "12px 20px", background: C.surfaceAlt, borderBottom: `1px solid ${C.border}`, display: "grid", gridTemplateColumns: "1fr auto", fontSize: 12, color: C.textMuted, fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: 1 }}>
+                <span>Student</span><span>Status</span>
+              </div>
+              {students.map(s => {
+                const [fg, bg] = getAvatarColor(s.name);
+                const status = attendanceMap[s.roll_number] || "absent";
+                return (
+                  <div key={s.roll_number} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderBottom: `1px solid ${C.surfaceAlt}` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 9, background: bg, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, color: fg }}>{s.name[0].toUpperCase()}</div>
+                      <div><div style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</div><div style={{ color: C.textFaint, fontSize: 11, fontFamily: "'DM Mono', monospace" }}>{s.roll_number}</div></div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {["present", "absent"].map(opt => (
+                        <button key={opt} onClick={() => setAttendanceMap(m => ({ ...m, [s.roll_number]: opt }))}
+                          style={{ padding: "6px 14px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 500, fontFamily: "'Lora', serif", border: `1px solid ${opt === "present" ? "#22c55e" : C.danger}`, background: status === opt ? (opt === "present" ? "#dcfce7" : C.dangerLight) : C.surface, color: status === opt ? (opt === "present" ? "#166534" : C.danger) : C.textMuted, transition: "all 0.1s" }}>
+                          {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              {students.length === 0 && <div style={{ padding: 40, textAlign: "center", color: C.textFaint, fontSize: 13 }}>No students to mark.</div>}
+            </div>
+
+            <button onClick={handleAttendanceSubmit} disabled={attendanceSubmitting || students.length === 0}
+              style={{ padding: "11px 28px", background: attendanceSubmitting ? C.borderStrong : C.accent, border: "none", color: "#fff", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 14, fontFamily: "'Lora', serif", marginBottom: 40 }}>
+              {attendanceSubmitting ? "Saving..." : "Save Attendance"}
+            </button>
+
+            {/* Overall stats */}
+            {attendanceStats.length > 0 && (
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 16 }}>Overall Attendance</div>
+                <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
+                  <div style={{ padding: "12px 20px", background: C.surfaceAlt, borderBottom: `1px solid ${C.border}`, display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 16, fontSize: 12, color: C.textMuted, fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: 1 }}>
+                    <span>Student</span><span>Present</span><span>Total</span><span>%</span>
+                  </div>
+                  {attendanceStats.map(s => (
+                    <div key={s.roll_number} style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 16, padding: "12px 20px", borderBottom: `1px solid ${C.surfaceAlt}`, alignItems: "center" }}>
+                      <span style={{ fontSize: 14, fontWeight: 500 }}>{s.name}</span>
+                      <span style={{ fontSize: 13, color: C.textMuted, fontFamily: "'DM Mono', monospace" }}>{s.present}</span>
+                      <span style={{ fontSize: 13, color: C.textMuted, fontFamily: "'DM Mono', monospace" }}>{s.total}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: attendanceColor(s.percentage), background: attendanceBg(s.percentage), padding: "2px 10px", borderRadius: 20, fontFamily: "'DM Mono', monospace" }}>{s.percentage}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SEARCH */}
         {view === "search" && (
           <div>
             <h1 style={{ fontSize: 30, fontWeight: 700, margin: "0 0 6px", letterSpacing: "-0.5px" }}>Search</h1>
@@ -437,10 +519,7 @@ function AdminDashboard({ user, token, onLogout }) {
                     onMouseLeave={e => e.currentTarget.style.borderColor = C.border}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
                       <div style={{ width: 36, height: 36, borderRadius: 9, background: bg, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, color: fg }}>{s.name[0].toUpperCase()}</div>
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div>
-                        <div style={{ color: C.textFaint, fontSize: 11, fontFamily: "'DM Mono', monospace" }}>{s.roll_number}</div>
-                      </div>
+                      <div><div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div><div style={{ color: C.textFaint, fontSize: 11, fontFamily: "'DM Mono', monospace" }}>{s.roll_number}</div></div>
                     </div>
                     <div style={{ fontSize: 12, color: C.textMuted }}>{s.department} · Y{s.year} · <span style={{ color: cgpaColor(s.cgpa), fontWeight: 600 }}>{s.cgpa}</span></div>
                   </div>
@@ -450,6 +529,7 @@ function AdminDashboard({ user, token, onLogout }) {
           </div>
         )}
 
+        {/* ADD / EDIT */}
         {view === "add" && (
           <div style={{ maxWidth: 520 }}>
             <h1 style={{ fontSize: 30, fontWeight: 700, margin: "0 0 6px", letterSpacing: "-0.5px" }}>{editRoll ? "Edit Student" : "Add Student"}</h1>
@@ -464,9 +544,7 @@ function AdminDashboard({ user, token, onLogout }) {
               ].map(field => (
                 <div key={field.key}>
                   <label style={{ fontSize: 12, color: C.textMuted, display: "block", marginBottom: 6, fontFamily: "'DM Mono', monospace" }}>{field.label}</label>
-                  <input type={field.type} value={form[field.key]} disabled={field.disabled}
-                    onChange={e => setForm(f => ({ ...f, [field.key]: e.target.value }))}
-                    placeholder={field.placeholder}
+                  <input type={field.type} value={form[field.key]} disabled={field.disabled} onChange={e => setForm(f => ({ ...f, [field.key]: e.target.value }))} placeholder={field.placeholder}
                     style={{ width: "100%", padding: "11px 14px", background: field.disabled ? C.surfaceAlt : C.surface, border: `1px solid ${C.border}`, borderRadius: 8, color: field.disabled ? C.textFaint : C.text, fontSize: 14, outline: "none", boxSizing: "border-box", fontFamily: "'Lora', serif" }} />
                 </div>
               ))}
@@ -488,8 +566,7 @@ function AdminDashboard({ user, token, onLogout }) {
                 </div>
                 <div>
                   <label style={{ fontSize: 12, color: C.textMuted, display: "block", marginBottom: 6, fontFamily: "'DM Mono', monospace" }}>CGPA *</label>
-                  <input type="number" step="0.1" min="0" max="10" value={form.cgpa}
-                    onChange={e => setForm(f => ({ ...f, cgpa: e.target.value }))}
+                  <input type="number" step="0.1" min="0" max="10" value={form.cgpa} onChange={e => setForm(f => ({ ...f, cgpa: e.target.value }))}
                     style={{ width: "100%", padding: "11px 14px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 14, outline: "none", boxSizing: "border-box", fontFamily: "'Lora', serif" }} />
                 </div>
               </div>
@@ -516,14 +593,10 @@ function AdminDashboard({ user, token, onLogout }) {
   );
 }
 
-// ── Root App ──────────────────────────────────────────────────────────────────
+// ── Root ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [session, setSession] = useState(null); // { token, role, name, roll_number? }
-
-  const handleLogin = (data) => setSession(data);
-  const handleLogout = () => setSession(null);
-
-  if (!session) return <LoginPage onLogin={handleLogin} />;
-  if (session.role === "student") return <StudentPortal user={session} token={session.token} onLogout={handleLogout} />;
-  return <AdminDashboard user={session} token={session.token} onLogout={handleLogout} />;
+  const [session, setSession] = useState(null);
+  if (!session) return <LoginPage onLogin={setSession} />;
+  if (session.role === "student") return <StudentPortal user={session} token={session.token} onLogout={() => setSession(null)} />;
+  return <AdminDashboard user={session} token={session.token} onLogout={() => setSession(null)} />;
 }

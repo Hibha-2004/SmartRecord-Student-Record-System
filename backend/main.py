@@ -8,7 +8,7 @@ from trie import Trie
 from hashmap import HashMap
 from bst import BST
 from auth import hash_password, verify_password, create_token, get_current_user, require_admin
-from database import init_db, db_insert_student, db_update_student, db_delete_student, db_get_all_students, db_get_student
+from database import init_db, db_insert_student, db_update_student, db_delete_student, db_get_all_students, db_get_student, db_mark_attendance, db_get_attendance_by_student, db_get_attendance_by_date, db_get_all_attendance_stats
 
 app = FastAPI(title="SmartRecord API")
 
@@ -219,3 +219,52 @@ def get_stats(user: dict = Depends(require_admin)):
         "departments": dept_count,
         "year_distribution": year_count,
     }
+
+
+# ─── Attendance Routes ────────────────────────────────────────────────────────
+
+class AttendanceRecord(BaseModel):
+    roll_number: str
+    status: str  # 'present' or 'absent'
+
+class BulkAttendanceRequest(BaseModel):
+    date: str  # YYYY-MM-DD
+    records: list[AttendanceRecord]
+
+
+@app.post("/attendance")
+def mark_attendance(req: BulkAttendanceRequest, user: dict = Depends(require_admin)):
+    records = [{"roll_number": r.roll_number, "date": req.date, "status": r.status} for r in req.records]
+    db_mark_attendance(records)
+    return {"message": f"Attendance marked for {len(records)} students on {req.date}"}
+
+
+@app.get("/attendance/stats")
+def get_all_attendance_stats(user: dict = Depends(require_admin)):
+    from database import db_get_all_attendance_stats
+    stats = db_get_all_attendance_stats()
+    # enrich with student name
+    enriched = []
+    for s in stats:
+        record = hashmap.get(s["roll_number"])
+        enriched.append({**s, "name": record["name"] if record else s["roll_number"]})
+    return {"stats": enriched}
+
+
+@app.get("/attendance/{roll_number}")
+def get_student_attendance(roll_number: str, user: dict = Depends(get_current_user)):
+    if user["role"] == "student" and user.get("roll_number") != roll_number:
+        raise HTTPException(status_code=403, detail="Access denied")
+    from database import db_get_attendance_by_student
+    return db_get_attendance_by_student(roll_number)
+
+
+@app.get("/attendance/date/{date}")
+def get_attendance_by_date(date: str, user: dict = Depends(require_admin)):
+    from database import db_get_attendance_by_date
+    records = db_get_attendance_by_date(date)
+    enriched = []
+    for r in records:
+        record = hashmap.get(r["roll_number"])
+        enriched.append({**r, "name": record["name"] if record else r["roll_number"]})
+    return {"date": date, "records": enriched}
