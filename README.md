@@ -2,6 +2,10 @@
 
 DS-powered student record system — Trie, HashMap, BST from scratch. React + FastAPI + SQLite.
 
+## 🔗 Live Demo
+- Frontend: https://smart-record-student-record-system.vercel.app
+- Backend API: https://smartrecord-student-record-system.onrender.com/docs
+
 ## Data Structures
 - **Trie** — name-based autocomplete search
 - **HashMap** — O(1) lookup by roll number
