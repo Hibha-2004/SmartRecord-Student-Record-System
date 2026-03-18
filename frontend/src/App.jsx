@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const API = "http://localhost:8000";
+const API = "https://smartrecord-student-record-system.onrender.com";
 const DEPARTMENTS = ["Computer Science", "Electronics", "Mechanical", "Civil", "Biotechnology", "Mathematics"];
 const initialForm = { name: "", roll_number: "", department: "", year: 1, cgpa: 0.0, email: "", phone: "", password: "student123" };
 
