@@ -5,8 +5,8 @@ DS-powered student record system — Trie, HashMap, BST from scratch. React + Fa
 ---
 
 ## 🔗 Live Demo
-- Frontend: https://smart-record-student-record-system.vercel.app
-- Backend API: https://smartrecord-student-record-system.onrender.com/docs
+- 🌐 Frontend: https://smart-record-student-record-system.vercel.app
+- 🚀 Backend API: https://smartrecord-student-record-system.onrender.com/docs
 
 ---
 
