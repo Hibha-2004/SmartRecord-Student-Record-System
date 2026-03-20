@@ -1,4 +1,4 @@
-# SmartRecord
+# 📚 SmartRecord
 
 DS-powered student record system — Trie, HashMap, BST from scratch. React + FastAPI + SQLite.
 
@@ -10,14 +10,14 @@ DS-powered student record system — Trie, HashMap, BST from scratch. React + Fa
 
 ---
 
-## Data Structures
+## 🧠 Data Structures
 - **Trie** — name-based autocomplete search
 - **HashMap** — O(1) lookup by roll number
 - **BST** — alphabetically sorted student listing
 
 ---
 
-## Tech Stack
+## 🛠️ Tech Stack
 - Frontend: React + Vite
 - Backend: Python + FastAPI
 - Database: SQLite
@@ -25,7 +25,7 @@ DS-powered student record system — Trie, HashMap, BST from scratch. React + Fa
 
 ---
 
-## Features
+## ✨ Features
 - Admin dashboard — add, edit, delete, search students
 - Bulk attendance marking with date picker
 - Student portal — view own record and attendance %
@@ -34,13 +34,13 @@ DS-powered student record system — Trie, HashMap, BST from scratch. React + Fa
 
 ---
 
-## Login Credentials
+## 🔑 Login Credentials
 - Admin → username: `admin` / password: `admin123`
 - Student → username: Student's roll number (example : 'CS2022001') / password: `student123` (default)
 
 ---
 
-## Running Locally
+## 💻 Running Locally
 
 **Backend**
 ```bash
@@ -61,7 +61,7 @@ Backend: `http://localhost:8000`
 
 ---
 
-## Project Structure
+## 📂 Project Structure
 ```
 smartrecord/
 ├── backend/
